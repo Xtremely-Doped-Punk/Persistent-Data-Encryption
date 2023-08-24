@@ -25,6 +25,7 @@ public class DemoFile : MonoBehaviour
     private FileInfo fileInfo;
     private Color defaultColor;
     private FileSystem.EncrptionType encrptionType;
+    private Transform prevModel;
     private string[] EncryptionTypes => Enum.GetNames(typeof(FileSystem.EncrptionType));
 
     private void Awake()
@@ -52,7 +53,7 @@ public class DemoFile : MonoBehaviour
     }
 
     [Command]
-    public void SetEncryptionTypeSwapParam(long size, int iters, int loops) 
+    public void SetEncryptionTypeSwapParam(long size, int iters, int loops)
     { FileSystem.test_size = size; FileSystem.test_iters = iters; FileSystem.test_loops = loops; }
 
     public void CheckValidAssetPath(string path)
@@ -147,7 +148,7 @@ public class DemoFile : MonoBehaviour
             {
                 byte[] data = FileSystem.Load<byte[]>(fileInfo.Name, encrptionType);
                 _LoadedSaveDataText.text = "Loaded from Saved file (in binary converted string format):\r\n" + FormatedDataString(data);
-                
+
                 loadTime = DateTime.Now.Ticks - startTime;
                 _LoadTimeText.SetText($"Load Time: {(loadTime / TimeSpan.TicksPerMillisecond):N4}ms");
                 //return data;
@@ -169,7 +170,7 @@ public class DemoFile : MonoBehaviour
 
     private void SerializeLargeFile()
     {
-        _AssetRawDataText.text = "Partially Loaded from Asset file (in binary converted string format):\r\n" + 
+        _AssetRawDataText.text = "Partially Loaded from Asset file (in binary converted string format):\r\n" +
             LoadDataFromStream(fileInfo.OpenRead(), useBinaryFormat);
 
         long startTime = DateTime.Now.Ticks;
@@ -280,7 +281,7 @@ public class DemoFile : MonoBehaviour
 
         // get the data path of this save data
         string path = FileSystem.GetDataPath(fileInfo.Name, encrptionType);
-        
+
         if (File.Exists(path))
         {
             File.Delete(path);
@@ -290,10 +291,6 @@ public class DemoFile : MonoBehaviour
 
     void LoadGltfBinaryFromStream(Stream stream)
     {
-        // clear previous models
-        for (int i = 0; i < spawnPoint.childCount; i++)
-            Destroy(spawnPoint.GetChild(i).gameObject);
-
         // load new model
         byte[] data;
         try
@@ -315,6 +312,15 @@ public class DemoFile : MonoBehaviour
     }
     async void LoadGltfBinaryFromBData(byte[] data)
     {
+        // clear previous models
+        /*
+        for (int i = 0; i < spawnPoint.childCount; i++)
+            Destroy(spawnPoint.GetChild(i).gameObject);
+        */
+        if (prevModel != null)
+            Destroy(prevModel.gameObject);
+
+        /*
         var gltf = new GltfImport();
         bool success = await gltf.LoadGltfBinary(
             data,
@@ -323,9 +329,31 @@ public class DemoFile : MonoBehaviour
             );
         if (success)
             success = await gltf.InstantiateMainSceneAsync(spawnPoint);
+        */
+
+        bool success;
+        (success, prevModel) = await GetComponent<GLTFast_AssetLoader>().LoadAssetFromBinary(data);
 
         if (!success)
             Debug.LogError($"Load GLTF not successfull for the given data!");
+        else
+            Debug.Log("GLTF loaded succesfully");
+        try
+        {
+            Animation anim = prevModel.GetComponentInChildren<Animation>();
+            if (anim != null)
+            {
+                anim.Stop();
+                Debug.Log("Animation Playing!");
+                anim.Play();
+            }
+            else
+                Debug.LogError("Animation Not found : " + prevModel.name);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError(e.Message);
+        }
     }
 }
 
